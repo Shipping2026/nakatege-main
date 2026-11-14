@@ -174,7 +174,7 @@ export default function KingShopFinal(){
               <textarea value={assistForm.msg} onChange={e=>setAssistForm({...assistForm,msg:e.target.value})} placeholder="Message..." rows={3} style={{padding:8,borderRadius:6,border:"1px solid #ddd",fontSize:10,color:"#000"}}/>
             </div>
             <div style={{display:"flex",gap:8,marginTop:12}}>
-              <button onClick={()=>{ window.open(`https://wa.me/254700000000?text=${encodeURIComponent(assistForm.nom+": "+assistForm.msg)}`,"_blank"); setShowAssist(false)}} style={{flex:1,background:"#25D366",color:"#fff",border:"none",padding:"10px",borderRadius:8,fontSize:10,fontWeight:700}}>WhatsApp</button>
+              <button onClick={()=>{ window.open(`https://wa.me/0182349840?text=${encodeURIComponent(assistForm.nom+": "+assistForm.msg)}`,"_blank"); setShowAssist(false)}} style={{flex:1,background:"#25D366",color:"#fff",border:"none",padding:"10px",borderRadius:8,fontSize:10,fontWeight:700}}>WhatsApp</button>
               <button onClick={()=>{ window.location.href=`mailto:king@kingshop.co.ke?subject=Assistance ${assistForm.nom}&body=${encodeURIComponent(assistForm.msg)}`; setShowAssist(false)}} style={{flex:1,background:"#000",color:"#fff",border:"none",padding:"10px",borderRadius:8,fontSize:10,fontWeight:700}}>Email</button>
             </div>
           </div>
