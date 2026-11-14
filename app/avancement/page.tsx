@@ -1,31 +1,54 @@
 "use client"
+
 import Link from "next/link"
-export default function Avancement(){
-  const ventes=[
-    {id:1, date:"23 Oct 2026 10:23", client:"Jean Kamau +254 712...", produit:"iPhone 15 Pro Max 256GB Titanium", montant:1556, transport:6, statut:"Félicitations! Vous avez vendu à Jean pour $1556 - Argent dans Portefeuille en attente"},
-    {id:2, date:"23 Oct 2026 09:15", client:"Marie Wanjiku +254 722...", produit:"Samsung S24 Ultra 512GB", montant:1256, transport:6, statut:"Félicitations! Vous avez vendu à Marie pour $1256 - Payé via Orange Money"},
-    {id:3, date:"22 Oct 2026", client:"Ali Hassan +254 733...", produit:"Nike Air 270 Homme", montant:85, transport:6, statut:"Félicitations! Vous avez vendu à Ali pour $85 - Validé, disponible à retirer"},
-    {id:4, date:"21 Oct 2026", client:"David Ochieng", produit:"Tapis Voiture 5D Cuir", montant:34, transport:6, statut:"Félicitations! Vous avez vendu 2 tapis à David pour $68"},
-  ]
-  const totalVendu = ventes.reduce((s,v)=>s+v.montant,0)
+
+const categories = [
+  { id: 1, name: "Téléphones", image: "📱" },
+  { id: 2, name: "Ordinateurs", image: "💻" },
+  { id: 3, name: "Vêtements", image: "👕" },
+  { id: 4, name: "Chaussures", image: "👟" },
+  { id: 5, name: "Accessoires", image: "👜" },
+  { id: 6, name: "Électronique", image: "🔌" },
+  { id: 7, name: "Maison", image: "🏠" },
+  { id: 8, name: "Voitures", image: "🚗" },
+]
+
+const produits: any[] = [] // VIDE
+
+export default function CategoriesPage() {
   return (
-    <div style={{maxWidth:480,margin:"0 auto",padding:12,fontFamily:"sans-serif",background:"#fff",minHeight:"100vh",paddingBottom:70}}>
-      <Link href="/parametres">← Retour Settings</Link>
-      <h1 style={{fontWeight:900,marginTop:10,fontSize:14}}>Avancement - Tous les formulaires vendus</h1>
-      <div style={{background:"#000",color:"#fff",borderRadius:12,padding:12,marginTop:10}}>
-        <div style={{fontSize:10,opacity:0.7}}>Total vendu</div>
-        <div style={{fontSize:20,fontWeight:900}}>${totalVendu} - {ventes.length} ventes</div>
-        <div style={{fontSize:9,marginTop:6}}>Tous les formulaires que j'ai pu vendre - Quand je vois une chose ça atterrit ici</div>
+    <div className="p-4 pb-20">
+      <h1 className="text-xl font-bold mb-4">Catégories</h1>
+      
+      {/* LISTE CATEGORIES VERTICALE AVEC PHOTO A COTE */}
+      <div className="flex flex-col gap-3 mb-8">
+        {categories.map((cat) => (
+          <Link key={cat.id} href={`/categories/${cat.id}`}>
+            <div className="flex items-center gap-4 p-3 bg-white rounded-xl shadow-sm border">
+              <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-2xl">
+                {cat.image}
+              </div>
+              <p className="font-semibold">{cat.name}</p>
+            </div>
+          </Link>
+        ))}
       </div>
-      <div style={{marginTop:12}}>
-        {ventes.map(v=><div key={v.id} style={{background:"#f2f2f7",padding:10,borderRadius:10,marginTop:8}}>
-          <div style={{display:"flex",justifyContent:"space-between"}}><b style={{fontSize:10}}>{v.client}</b><span style={{fontSize:8,background:"#fff",padding:"2px 6px",borderRadius:10}}>{v.date}</span></div>
-          <div style={{fontSize:11,marginTop:4}}><b>{v.produit}</b> - ${v.montant}</div>
-          <div style={{fontSize:10,marginTop:6,background:"#fff",padding:8,borderRadius:8}}>{v.statut}</div>
-          <div style={{fontSize:9,marginTop:4,color:"#666"}}>Transport ${v.transport} inclus - Reçu automatique envoyé au client avec ton tel/email</div>
-        </div>)}
-      </div>
-      <div style={{fontSize:9,marginTop:12,textAlign:"center",color:"#666"}}>Plus de 404 - Tout s'affiche ici quand tu cliques sur Avancement</div>
+
+      <h2 className="text-lg font-bold mb-3">Produits</h2>
+
+      {/* PRODUITS VIDES */}
+      {produits.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center border rounded-xl bg-gray-50">
+          <p className="font-bold">Produit non disponible pour le moment</p>
+          <p className="text-sm text-gray-500 mt-1">En attente des publications KING SHOPPING</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {produits.map((p) => (
+            <div key={p.id}>{p.name}</div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
