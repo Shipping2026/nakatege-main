@@ -1,0 +1,19 @@
+import { NextResponse } from "next/server"
+
+let produitsGlobaux:any[] = [] // Ici on va mettre Firebase après
+
+export async function GET(){
+  return NextResponse.json(produitsGlobaux)
+}
+
+export async function POST(req: Request){
+  const p = await req.json()
+  const nouveau = {...p, id: Date.now().toString(), date: new Date().toISOString()}
+  produitsGlobaux = [nouveau, ...produitsGlobaux]
+  return NextResponse.json(nouveau)
+}
+
+export async function DELETE(){
+  produitsGlobaux = []
+  return NextResponse.json({ok:true})
+}
