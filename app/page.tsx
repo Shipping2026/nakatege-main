@@ -1,186 +1,293 @@
-"use client"
-import { useState, useMemo, useEffect, useRef } from "react"
-import Link from "next/link"
-import { produits as allProduits } from "../lib/db"
+"use client";
 
-// TAUX DE CHANGE - BASE USD
-const rates: any = {
-  "USD $": 1,
-  "KES KSh": 129.5,
-  "EUR €": 0.92,
-  "GBP £": 0.79,
-  "NGN ₦": 1600,
-  "ZAR R": 18.5,
-  "UGX USh": 3850,
-  "TZS TSh": 2680,
-  "RWF RF": 1280,
-  "ETB Br": 57,
-  "EGP E£": 50.5,
-  "MAD DH": 10.1,
-  "DZD DA": 135,
-  "XOF CFA": 605,
-  "XAF CFA": 605,
-  "GHS ₵": 15.5,
-  "INR ₹": 83.5,
-  "CNY ¥": 7.24,
-  "JPY ¥": 155,
-  "KRW ₩": 1350,
-  "AED AED": 3.67,
-  "SAR SAR": 3.75,
-  "TRY ₺": 32.5,
-  "BRL R$": 5.2,
-  "CAD C$": 1.36,
-  "AUD A$": 1.52,
-  "CHF CHF": 0.91,
-  "SEK kr": 10.9,
-  "NOK kr": 10.8,
-  "DKK kr": 6.86,
-  "PLN zł": 4.02,
-  "RUB ₽": 92,
-  "PKR ₨": 278,
-  "BDT ৳": 117,
-  "IDR Rp": 16200
-}
-const currencies35 = Object.keys(rates)
-const categories12 = ["All","Phones","Laptops","Shoes","Watches","Fashion","Electronics","Gaming","Home","Beauty","Sports","Kids"]
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
-export default function KingShopFinal(){
-  const [search,setSearch]=useState("")
-  const [cat,setCat]=useState("All")
-  const [showCurrency,setShowCurrency]=useState(false)
-  const [selectedCurrency,setSelectedCurrency]=useState("USD $")
-  const [showAssist,setShowAssist]=useState(false)
-  const [assistForm,setAssistForm]=useState({nom:"",email:"",tel:"",msg:""})
-  const fileRef=useRef<HTMLInputElement>(null)
-  const [clientUser,setClientUser]=useState<any>(null)
-  const [checked,setChecked]=useState(false)
-  const [step,setStep]=useState(0)
-  const [form,setForm]=useState({pseudo:"",nom:"",prenom:"",email:"",tel:"",photo:"https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200"})
-  const [videoTimer,setVideoTimer]=useState(15)
-  const [videoIndex,setVideoIndex]=useState(0)
-  const [listening,setListening]=useState(false)
+// ======================================================
+//  KING SHOPPING — Page d'accueil (app/page.tsx)
+// ======================================================
 
-  useEffect(()=>{ const cu=localStorage.getItem("client_user"); if(cu) setClientUser(JSON.parse(cu)); setChecked(true)},[])
-  useEffect(()=>{
-    if(step!==2) return
-    if(videoTimer<=0){
-      if(videoIndex===0){ setVideoIndex(1); setVideoTimer(15); return }
-      localStorage.setItem("client_user", JSON.stringify({...form, id:Date.now()}))
-      setClientUser(form); return
-    }
-    const t=setTimeout(()=>setVideoTimer(videoTimer-1),1000)
-    return ()=>clearTimeout(t)
-  },[step,videoTimer,videoIndex,form])
+const ORANGE = "#e8650a";
+const USER_NAME = "KING";
+const PROFILE_PHOTO = ""; // ex : "/photos/profil.jpg" (sinon la lettre du nom s'affiche)
+const CART_KEY = "king-cart"; // même panier que la page Catégories
 
-  const handlePhoto=(e:any)=>{ const f=e.target.files?.[0]; if(f) setForm({...form,photo:URL.createObjectURL(f)}) }
+type Product = { id: string; name: string; price: number; old: number; category: string; img: string };
+type Cart = Record<string, { product: Product; qty: number }>;
 
-  // MICRO GOOGLE - COMME GOOGLE
-  const startMic=()=>{
-    const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
-    if(!SR){ alert("Use Chrome for voice search"); return }
-    const rec=new SR(); rec.lang="fr-FR"; rec.onstart=()=>setListening(true); rec.onend=()=>setListening(false)
-    rec.onresult=(e:any)=>setSearch(e.results[0][0].transcript); rec.start()
-  }
+// Raccourcis du haut (les "id" sont les catégories de la page admin)
+const SHORTCUTS = [
+  { id: "vetements", label: "Mode", icon: "👕" },
+  { id: "electronique", label: "Électronique", icon: "📱" },
+  { id: "beaute", label: "Beauté", icon: "💄" },
+  { id: "maison", label: "Maison", icon: "🛋️" },
+  { id: "sport", label: "Sport", icon: "🏋️" },
+  { id: "gaming", label: "Jeux", icon: "🎮" },
+];
 
-  // CONVERTIR PRIX USD -> DEVISE SELECTIONNEE
-  const convertPrice = (usd: number) => {
-    const rate = rates[selectedCurrency] || 1
-    const converted = usd * rate
-    // Arrondi propre
-    if(converted >= 1000) return Math.round(converted).toLocaleString()
-    return converted.toFixed(2)
-  }
+const euro = (n: number) => n.toFixed(2).replace(".", ",") + " €";
+const norm = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
-  const filtered = useMemo(()=>{
-    let l=allProduits
-    if(search) l=l.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()))
-    if(cat!=="All") l=l.filter(p=>p.cat===cat || p.name.toLowerCase().includes(cat.toLowerCase()))
-    return l
-  },[search,cat])
+export default function HomePage() {
+  const [catalog, setCatalog] = useState<Product[]>([]);
+  const [cart, setCart] = useState<Cart>({});
+  const [loaded, setLoaded] = useState(false);
+  const [query, setQuery] = useState("");
+  const [cat, setCat] = useState<string | null>(null);
+  const [onlyPromo, setOnlyPromo] = useState(false);
 
-  if(!checked) return <div style={{padding:20}}>Loading...</div>
-  if(!clientUser){
-    return (
-      <div style={{maxWidth:480,margin:"0 auto",background:"#0a0e1a",minHeight:"100vh",color:"#fff"}}>
-        {step===0 && <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:20,textAlign:"center"}}><div style={{fontSize:11,letterSpacing:4,color:"#666",marginBottom:8}}>WELCOME TO</div><div style={{fontSize:24,fontWeight:900}}>KINGSHOP.CO.KE</div><div style={{width:"100%",marginTop:30,display:"flex",gap:10}}><button onClick={()=>setStep(1)} style={{flex:1,background:"#fff",color:"#000",padding:"10px",borderRadius:20,border:"none",fontSize:12,fontWeight:900}}>Sign Up</button><button onClick={()=>setStep(1)} style={{flex:1,background:"transparent",color:"#fff",padding:"10px",borderRadius:20,border:"1px solid #444",fontSize:12}}>Sign In</button></div></div>}
-        {step===1 && <div style={{padding:20}}><div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:900}}>KINGSHOP.CO.KE</div></div><div style={{textAlign:"center",marginTop:20}}><img src={form.photo} style={{width:80,height:80,borderRadius:40,border:"2px solid #fff",objectFit:"cover"}}/><div style={{marginTop:8}}><label style={{background:"#fff",color:"#000",padding:"6px 12px",borderRadius:15,fontSize:10,fontWeight:700,cursor:"pointer"}}>📷 Photo<input type="file" accept="image/*" onChange={handlePhoto} style={{display:"none"}}/></label></div></div><div style={{display:"flex",flexDirection:"column",gap:8,marginTop:20}}><input value={form.pseudo} onChange={e=>setForm({...form,pseudo:e.target.value})} placeholder="Pseudo *" style={{padding:"12px",borderRadius:8,border:"none",color:"#000",background:"#fff",fontSize:12}}/><div style={{display:"flex",gap:8}}><input value={form.nom} onChange={e=>setForm({...form,nom:e.target.value})} placeholder="Last Name *" style={{flex:1,padding:"12px",borderRadius:8,border:"none",color:"#000",background:"#fff",fontSize:12}}/><input value={form.prenom} onChange={e=>setForm({...form,prenom:e.target.value})} placeholder="First Name *" style={{flex:1,padding:"12px",borderRadius:8,border:"none",color:"#000",background:"#fff",fontSize:12}}/></div><input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="Email *" style={{padding:"12px",borderRadius:8,border:"none",color:"#000",background:"#fff",fontSize:12}}/><input value={form.tel} onChange={e=>setForm({...form,tel:e.target.value})} placeholder="Phone *" style={{padding:"12px",borderRadius:8,border:"none",color:"#000",background:"#fff",fontSize:12}}/></div><button onClick={()=>{ if(!form.pseudo||!form.nom||!form.email||!form.tel) return alert("Fill all"); setVideoTimer(15); setVideoIndex(0); setStep(2)}} style={{width:"100%",marginTop:20,background:"#fff",color:"#000",padding:"12px",borderRadius:20,border:"none",fontSize:12,fontWeight:900}}>Continue</button></div>}
-        {step===2 && <div style={{position:"fixed",inset:0,background:"#000",zIndex:999,display:"flex",flexDirection:"column"}}><div style={{flex:1,position:"relative"}}><video autoPlay muted loop playsInline style={{width:"100%",height:"100%",objectFit:"cover"}} src={videoIndex===0?"https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4":"https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"} /><div style={{position:"absolute",top:16,right:16,background:"#ffcc00",color:"#000",padding:"6px 12px",borderRadius:20,fontSize:12,fontWeight:900}}>{videoTimer}s - Video {videoIndex+1}/2</div><div style={{position:"absolute",bottom:0,left:0,right:0,height:4,background:"#333"}}><div style={{width:`${((15-videoTimer)/15)*100}%`,height:4,background:"#ffcc00"}}></div></div></div></div>}
-      </div>
-    )
-  }
+  // Produits publiés depuis la page admin
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/products", { cache: "no-store" });
+        if (res.ok) setCatalog(await res.json());
+      } catch {}
+    };
+    load();
+    const onVisible = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  // Panier enregistré dans le téléphone
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CART_KEY);
+      if (saved) setCart(JSON.parse(saved));
+    } catch {}
+    setLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    } catch {}
+  }, [cart, loaded]);
+
+  const count = Object.values(cart).reduce((n, l) => n + l.qty, 0);
+  const addToCart = (p: Product) =>
+    setCart((c) => ({ ...c, [p.id]: { product: p, qty: (c[p.id]?.qty ?? 0) + 1 } }));
+
+  // Recherche vocale (micro)
+  const listen = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return alert("La recherche vocale n'est pas disponible sur ce navigateur.");
+    const r = new SR();
+    r.lang = "fr-FR";
+    r.onresult = (e: any) => setQuery(e.results[0][0].transcript);
+    r.start();
+  };
+
+  const showOffers = () => {
+    setOnlyPromo(true);
+    setCat(null);
+    document.getElementById("produits")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const visible = catalog.filter(
+    (p) =>
+      (!cat || p.category === cat) &&
+      (!onlyPromo || p.old > p.price) &&
+      norm(p.name).includes(norm(query))
+  );
+  const filtered = cat !== null || onlyPromo || query.trim() !== "";
 
   return (
-    <div style={{maxWidth:480,margin:"0 auto",background:"#fff",minHeight:"100vh",fontFamily:"sans-serif",paddingBottom:90}}>
-      <div style={{position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,zIndex:100,background:"#000",padding:"8px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><b style={{fontSize:11,color:"#fff"}}>KINGSHOP.CO.KE</b><button onClick={()=>setShowCurrency(!showCurrency)} style={{background:"#222",color:"#fff",border:"none",padding:"5px 10px",borderRadius:10,fontSize:8}}>{selectedCurrency} ▼</button></div>
-      <div style={{height:42}}></div>
-      
-      {showCurrency && (
-        <div style={{margin:"0 10px",background:"#fff",border:"2px solid #000",borderRadius:12,padding:10,zIndex:50}}>
-          <div style={{fontSize:9,fontWeight:700,marginBottom:8}}>Select currency - Prices will convert:</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{currencies35.map(c=><button key={c} onClick={()=>{setSelectedCurrency(c); setShowCurrency(false)}} style={{background:selectedCurrency===c?"#000":"#f2f2f7",color:selectedCurrency===c?"#fff":"#000",border:selectedCurrency===c?"2px solid #ffcc00":"1px solid #ddd",padding:"7px 10px",borderRadius:8,fontSize:8,fontWeight:700}}>{c}</button>)}</div>
-          <div style={{marginTop:8,fontSize:8,color:"#666"}}>Base: USD $ - Example: $1000 = {convertPrice(1000)} {selectedCurrency}</div>
-        </div>
-      )}
-
-      <div style={{padding:"8px 10px"}}>
-        <div style={{display:"flex",alignItems:"center",border:"1px solid #ddd",borderRadius:30,padding:"4px 5px 4px 12px",background:"#fff",boxShadow:"0 1px 3px rgba(0,0,0,0.1)"}}>
-          <button onClick={()=>fileRef.current?.click()} style={{border:"none",background:"transparent",fontSize:18}}>📷</button>
-          <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}}/>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search products" style={{flex:1,border:"none",outline:"none",marginLeft:8,fontSize:12,color:"#000"}}/>
-          
-          {/* MICRO GOOGLE - COULEUR GOOGLE - COMME TU DIS */}
-          <button onClick={startMic} style={{border:"none",background:listening?"#fce8e6":"#f8f9fa",width:36,height:36,borderRadius:18,display:"flex",alignItems:"center",justifyContent:"center",marginLeft:4,cursor:"pointer",boxShadow:listening?"0 0 0 3px #fbbc04":"none"}}>
-            {listening ? (
-              <span style={{fontSize:16}}>🔴</span>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M12 14a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 0 0-7 0v4.5A3.5 3.5 0 0 0 12 14z"/><path fill="#34A853" d="M17 11a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2z"/><path fill="#FBBC05" d="M12 19v3"/><path fill="#EA4335" d="M11 19h2v3h-2z"/></svg>
-            )}
-          </button>
-          
-          <button style={{background:"#000",color:"#fff",border:"none",padding:"8px 16px",borderRadius:20,fontSize:10,fontWeight:700,marginLeft:4}}>Search</button>
-        </div>
-        {listening && <div style={{textAlign:"center",fontSize:9,color:"#EA4335",marginTop:4,fontWeight:700}}>🎤 Listening... Parle maintenant!</div>}
-      </div>
-
-      <div style={{margin:"0 10px",display:"flex",alignItems:"center",gap:8,background:"#f2f2f7",borderRadius:10,padding:8}}><img src={clientUser.photo} style={{width:30,height:30,borderRadius:15,objectFit:"cover"}}/><div style={{fontSize:9,fontWeight:700}}>{clientUser.pseudo}</div><div style={{marginLeft:"auto",fontSize:8,background:"#000",color:"#fff",padding:"3px 8px",borderRadius:10}}>{selectedCurrency}</div></div>
-
-      <Link href="/categories" style={{textDecoration:"none"}}><div style={{margin:"8px 10px",background:"#000",borderRadius:10,padding:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:12,fontWeight:900,color:"#ffcc00"}}>PUBLICITÉ</div><div style={{fontSize:8,color:"#fff"}}>King Shipping - 50% OFF - Click!</div></div><div style={{color:"#fff"}}>➡️</div></div></Link>
-
-      <div style={{margin:"8px 10px"}}><div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4,whiteSpace:"nowrap"}}>{categories12.map(c=>(<button key={c} onClick={()=>setCat(c)} style={{flexShrink:0,background:cat===c?"#000":"#f2f2f7",color:cat===c?"#fff":"#000",border:"none",padding:"7px 12px",borderRadius:20,fontSize:9,fontWeight:700}}>{c}</button>))}</div></div>
-
-      {/* PRODUITS AVEC CONVERSION - PRIX CHANGE SELON MONNAIE */}
-      <div style={{margin:10,background:"#f2f2f7",borderRadius:12,padding:10}}>
-        <div style={{fontSize:8,color:"#666",marginBottom:6}}>Prices in {selectedCurrency} - Base USD converted:</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-          {filtered.map(p=>(
-            <Link key={p.id} href={`/produits/${p.id}?cur=${encodeURIComponent(selectedCurrency)}&rate=${rates[selectedCurrency]}`} style={{background:"#fff",borderRadius:10,padding:6,textDecoration:"none",color:"#000",border:"1px solid #eee"}}>
-              <img src={p.img} style={{width:"100%",height:70,objectFit:"cover",borderRadius:6}}/>
-              <div style={{fontSize:8,fontWeight:700,height:20,overflow:"hidden",marginTop:4}}>{p.name}</div>
-              <div style={{fontSize:11,fontWeight:900,color:selectedCurrency==="USD $"?"#000":"#00a651"}}>{convertPrice(p.price)} {selectedCurrency.split(" ")[1] || selectedCurrency.split(" ")[0]}</div>
-              {selectedCurrency!=="USD $" && <div style={{fontSize:7,color:"#999",textDecoration:"line-through"}}>${p.price}</div>}
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      <div style={{position:"fixed",bottom:88,right:12,zIndex:200}}><button onClick={()=>setShowAssist(true)} style={{background:"#ffcc00",width:48,height:48,borderRadius:24,border:"2px solid #000",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🎧</button></div>
-      {showAssist && (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:12}} onClick={()=>setShowAssist(false)}>
-          <div style={{background:"#fff",width:"100%",maxWidth:340,borderRadius:12,padding:14}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between"}}><b style={{fontSize:11}}>Assistance</b><button onClick={()=>setShowAssist(false)} style={{border:"none",background:"#000",color:"#fff",width:20,height:20,borderRadius:10}}>X</button></div>
-            <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:6}}>
-              <input value={assistForm.nom} onChange={e=>setAssistForm({...assistForm,nom:e.target.value})} placeholder="Name *" style={{padding:8,borderRadius:6,border:"1px solid #ddd",fontSize:10,color:"#000"}}/>
-              <input value={assistForm.email} onChange={e=>setAssistForm({...assistForm,email:e.target.value})} placeholder="Email *" style={{padding:8,borderRadius:6,border:"1px solid #ddd",fontSize:10,color:"#000"}}/>
-              <textarea value={assistForm.msg} onChange={e=>setAssistForm({...assistForm,msg:e.target.value})} placeholder="Message..." rows={3} style={{padding:8,borderRadius:6,border:"1px solid #ddd",fontSize:10,color:"#000"}}/>
-            </div>
-            <div style={{display:"flex",gap:8,marginTop:12}}>
-              <button onClick={()=>{ window.open(`https://wa.me/0182349840?text=${encodeURIComponent(assistForm.nom+": "+assistForm.msg)}`,"_blank"); setShowAssist(false)}} style={{flex:1,background:"#25D366",color:"#fff",border:"none",padding:"10px",borderRadius:8,fontSize:10,fontWeight:700}}>WhatsApp</button>
-              <button onClick={()=>{ window.location.href=`mailto:king@kingshop.co.ke?subject=Assistance ${assistForm.nom}&body=${encodeURIComponent(assistForm.msg)}`; setShowAssist(false)}} style={{flex:1,background:"#000",color:"#fff",border:"none",padding:"10px",borderRadius:8,fontSize:10,fontWeight:700}}>Email</button>
+    <div style={s.page}>
+      {/* EN-TÊTE SOMBRE */}
+      <header style={s.header}>
+        <div style={s.welcomeRow}>
+          <div style={s.avatar}>
+            {PROFILE_PHOTO ? <img src={PROFILE_PHOTO} alt="" style={s.avatarImg} /> : USER_NAME[0]}
+          </div>
+          <div>
+            <div style={s.welcome}>Bienvenue,</div>
+            <div style={s.welcome}>{USER_NAME}</div>
+            <div style={s.verified}>
+              <span style={s.verifiedDot}>✓</span> Vérifié
             </div>
           </div>
+
+          <div style={s.searchBox}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.6" strokeLinecap="round">
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <line x1="15.5" y1="15.5" x2="21" y2="21" />
+            </svg>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un produit..." style={s.searchInput} />
+            <button style={s.micBtn} onClick={listen} aria-label="Recherche vocale">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3563e9" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="3" width="6" height="12" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+              </svg>
+            </button>
+          </div>
+
+          <Link href="/panier" style={s.cartBtn} aria-label="Panier">
+            <CartIcon size={20} color="#fff" />
+            {count > 0 && <span style={s.badge}>{count}</span>}
+          </Link>
         </div>
-      )}
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#fff",borderTop:"1px solid #ddd",display:"flex",justifyContent:"space-around",padding:"8px 0",zIndex:100}}><Link href="/" style={{textAlign:"center",fontSize:8,textDecoration:"none",color:"#000",fontWeight:700}}><div>🏠</div>Accueil</Link><Link href="/categories" style={{textAlign:"center",fontSize:8,textDecoration:"none",color:"#666"}}><div>📂</div>Catégorie</Link><Link href="/messages" style={{textAlign:"center",fontSize:8,textDecoration:"none",color:"#666"}}><div>💬</div>Message</Link><Link href="/panier" style={{textAlign:"center",fontSize:8,textDecoration:"none",color:"#666"}}><div>🛒</div>Panier</Link><Link href="/parametres" style={{textAlign:"center",fontSize:8,textDecoration:"none",color:"#000",fontWeight:700,background:"#ffcc00",padding:"3px 8px",borderRadius:10}}><div>⚙️</div>SETTING</Link></div>
+      </header>
+
+      {/* RACCOURCIS */}
+      <div style={s.shortcuts}>
+        {SHORTCUTS.map((c) => {
+          const on = cat === c.id;
+          return (
+            <button key={c.id} style={s.shortcut} onClick={() => { setCat(on ? null : c.id); setOnlyPromo(false); }}>
+              <span style={{ ...s.shortcutBox, borderColor: on ? ORANGE : "#9bb0d8", background: on ? "#fff3ea" : "#fff" }}>{c.icon}</span>
+              <span style={{ fontSize: 11, fontWeight: on ? 700 : 500, color: on ? ORANGE : "#111" }}>{c.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* BANNIÈRE */}
+      <section style={s.banner}>
+        <h2 style={s.bannerTitle}>
+          Super Soldes
+          <br />
+          Jusqu'à -70%
+        </h2>
+        <p style={s.bannerText}>Livraison offerte dès 50€</p>
+        <button style={s.bannerBtn} onClick={showOffers}>
+          Voir les offres →
+        </button>
+      </section>
+
+      {/* PRODUITS */}
+      <section id="produits" style={s.products}>
+        <div style={s.productsHead}>
+          <h2 style={s.h2}>Produits</h2>
+          <span style={{ color: "#555", fontSize: 14 }}>
+            {visible.length} article{visible.length > 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {filtered && (
+          <button style={s.resetBtn} onClick={() => { setCat(null); setOnlyPromo(false); setQuery(""); }}>
+            ✕ Tout afficher
+          </button>
+        )}
+
+        {visible.length > 0 ? (
+          <div style={s.grid}>
+            {visible.map((p) => {
+              const onSale = p.old > p.price;
+              const inCart = cart[p.id]?.qty ?? 0;
+              return (
+                <article key={p.id} style={s.card}>
+                  <div style={s.imgWrap}>
+                    {onSale && <span style={s.promo}>-{Math.round((1 - p.price / p.old) * 100)}%</span>}
+                    <img src={p.img} alt={p.name} loading="lazy" style={s.img} />
+                  </div>
+                  <div style={s.prodName}>{p.name}</div>
+                  <div style={s.price}>{euro(p.price)}</div>
+                  <div style={s.oldPrice}>{onSale ? euro(p.old) : "\u00a0"}</div>
+                  <button style={s.addBtn} onClick={() => addToCart(p)}>
+                    <CartIcon size={16} color="#fff" />
+                    {inCart > 0 ? `Ajouté (${inCart})` : "Ajouter"}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={s.grid}>
+            {[0, 1].map((i) => (
+              <div key={i} style={s.placeholder}>
+                <svg width="76" height="60" viewBox="0 0 76 60" fill="none" stroke="#888" strokeWidth="2" strokeDasharray="5 4">
+                  <path d="M8 18h60v34H8zM8 18l8-12h44l8 12" />
+                  <path d="M30 28h16" />
+                </svg>
+                <span style={{ fontSize: 13, color: "#555", textAlign: "center", marginTop: 14 }}>
+                  {filtered ? "Aucun produit trouvé" : <>Aucun produit publié<br />pour le moment</>}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* BARRE DU BAS */}
+      <nav style={s.nav}>
+        <NavItem href="/" label="Accueil" active icon={<path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" fill={ORANGE} stroke={ORANGE} />} />
+        <NavItem href="/categories" label="Catégories" icon={<><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>} />
+        <NavItem href="/messages" label="Messages" icon={<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z" />} />
+        <NavItem href="/panier" label="Panier" badge={count} icon={<><path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 7H6" /><circle cx="9.5" cy="20" r="1.4" /><circle cx="17" cy="20" r="1.4" /></>} />
+        <NavItem href="/profil" label="Profil" icon={<><circle cx="12" cy="9" r="4" /><path d="M4 21c1-4 4-6 8-6s7 2 8 6" /></>} />
+      </nav>
     </div>
-  )
+  );
 }
+
+function NavItem({ href, label, icon, active, badge }: { href: string; label: string; icon: React.ReactNode; active?: boolean; badge?: number }) {
+  return (
+    <Link href={href} style={{ ...s.navItem, color: active ? ORANGE : "#444", fontWeight: active ? 700 : 500 }}>
+      <span style={{ position: "relative", display: "flex" }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={active ? ORANGE : "#444"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {icon}
+        </svg>
+        {badge !== undefined && <span style={s.navBadge}>{badge}</span>}
+      </span>
+      {label}
+    </Link>
+  );
+}
+
+function CartIcon({ size, color }: { size: number; color: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 7H6" />
+      <circle cx="9.5" cy="20" r="1.4" />
+      <circle cx="17" cy="20" r="1.4" />
+    </svg>
+  );
+}
+
+const s: Record<string, React.CSSProperties> = {
+  page: { minHeight: "100dvh", background: "linear-gradient(#ebe8e5, #f4f2f0)", fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif", color: "#111", paddingBottom: 100 },
+
+  header: { background: "#0e0e10", borderRadius: "0 0 28px 28px", padding: "22px 16px 24px" },
+  welcomeRow: { display: "flex", alignItems: "center", gap: 10 },
+  avatar: { width: 56, height: 56, borderRadius: "50%", background: "#d9d3cc", color: "#222", fontSize: 24, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" },
+  avatarImg: { width: "100%", height: "100%", objectFit: "cover" },
+  welcome: { color: "#fff", fontWeight: 800, fontSize: 15, lineHeight: 1.25 },
+  verified: { color: "#3b82f6", fontSize: 12, marginTop: 2, display: "flex", alignItems: "center", gap: 4 },
+  verifiedDot: { background: "#3b82f6", color: "#fff", borderRadius: "50%", width: 13, height: 13, fontSize: 9, display: "inline-flex", alignItems: "center", justifyContent: "center" },
+  searchBox: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, background: "#d9d9dc", borderRadius: 14, padding: "9px 10px" },
+  searchInput: { flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontSize: 12, fontFamily: "inherit" },
+  micBtn: { background: "none", border: "none", padding: 0, display: "flex", cursor: "pointer" },
+  cartBtn: { position: "relative", width: 40, height: 40, borderRadius: 10, background: ORANGE, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  badge: { position: "absolute", top: -7, right: -7, minWidth: 18, height: 18, borderRadius: 9, background: "#fff", color: ORANGE, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" },
+
+  shortcuts: { display: "flex", justifyContent: "space-between", padding: "18px 14px 6px" },
+  shortcut: { display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" },
+  shortcutBox: { width: 50, height: 50, borderRadius: 12, border: "1.5px solid #9bb0d8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 },
+
+  banner: { margin: "18px 16px 0", borderRadius: 22, padding: "24px 20px 20px", background: "linear-gradient(115deg, #ee7d3f 0%, #d9622a 38%, #14100e 78%)", color: "#fff", boxShadow: "0 6px 18px rgba(0,0,0,0.18)" },
+  bannerTitle: { margin: 0, fontSize: 30, lineHeight: 1.12, fontWeight: 900 },
+  bannerText: { margin: "12px 0 14px", fontSize: 13, fontWeight: 600 },
+  bannerBtn: { display: "block", marginLeft: "auto", background: "#2563eb", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+
+  products: { padding: "26px 16px 0" },
+  productsHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 },
+  h2: { margin: 0, fontSize: 26, fontWeight: 900, color: "#0b1b3a" },
+  resetBtn: { background: "#fff3ea", color: ORANGE, border: `1px solid ${ORANGE}`, borderRadius: 16, padding: "6px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 14, fontFamily: "inherit" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 },
+  placeholder: { minHeight: 230, border: "2px dashed #999", borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 12 },
+
+  card: { background: "#fff", borderRadius: 10, padding: 8, boxShadow: "0 2px 10px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column", alignItems: "center" },
+  imgWrap: { position: "relative", width: "100%", aspectRatio: "1 / 1", background: "#f2f2f2", borderRadius: 8, overflow: "hidden" },
+  img: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
+  promo: { position: "absolute", top: 0, left: 0, background: ORANGE, color: "#fff", fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: "8px 0 8px 0", zIndex: 1 },
+  prodName: { fontSize: 12, marginTop: 10, textAlign: "center" },
+  price: { fontSize: 17, fontWeight: 800, marginTop: 4 },
+  oldPrice: { fontSize: 11, color: "#777", textDecoration: "line-through", marginBottom: 8 },
+  addBtn: { width: "100%", background: ORANGE, color: "#fff", border: "none", borderRadius: 8, padding: "9px 0", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", fontFamily: "inherit" },
+
+  nav: { position: "fixed", left: 12, right: 12, bottom: 12, background: "#fff", borderRadius: 26, boxShadow: "0 4px 18px rgba(0,0,0,0.18)", display: "flex", justifyContent: "space-around", padding: "10px 4px 8px", zIndex: 5 },
+  navItem: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontSize: 11, textDecoration: "none", flex: 1 },
+  navBadge: { position: "absolute", top: -6, right: -8, minWidth: 16, height: 16, borderRadius: 8, background: "#333", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" },
+};
