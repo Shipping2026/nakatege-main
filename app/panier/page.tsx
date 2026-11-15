@@ -1,133 +1,209 @@
-"use client"
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
+"use client";
 
-export default function PanierKingShipping(){
-  const router = useRouter()
-  const [panier,setPanier]=useState<any[]>([])
-  const [methode,setMethode]=useState("Airtel Money")
-  const [open,setOpen]=useState(false)
-  const [stepPin,setStepPin]=useState(false)
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-  const clean = (v:any)=>{ const n=parseFloat(String(v??0).replace(/[^0-9.]/g,"")); return isNaN(n)?0:n }
+type Product = { id: number; name: string; price: number; rating: number; sold: number; image: string };
 
-  useEffect(()=>{
-    const d=JSON.parse(localStorage.getItem("panier")||"[]")
-    setPanier(d.map((p:any)=>({...p,_prix:clean(p.prix||p.price),_qty:Number(p.qty||1)})))
-  },[])
+// Vide pour l'instant. Quand tu publies, les produits arrivent ici
+// (le mieux : mettre cette liste dans un fichier commun avec la page messages).
+const PRODUCTS: Product[] = [];
 
-  const addToCart = (pr:any)=>{
-    const prix = clean(pr.prix)
-    const nouveau = {id:pr.id, name:pr.nom, prix:prix, price:prix, _prix:prix, _qty:1, qty:1, image:pr.img, img:pr.img}
-    const newPanier = [...panier, nouveau]
-    setPanier(newPanier)
-    localStorage.setItem("panier", JSON.stringify(newPanier))
+const METHODS = [
+  { id: "paypal", label: "PayPal", icon: "P", color: "#1d4fd8" },
+  { id: "apple", label: "Apple Pay", icon: "", color: "#2563eb" },
+  { id: "mpesa", label: "M-Pesa", icon: "MP", color: "#16a34a" },
+  { id: "orange", label: "Orange Money", icon: "◎", color: "#ea580c" },
+  { id: "wave", label: "Wave", icon: "≋", color: "#0ea5e9" },
+  { id: "card", label: "Bank Card", icon: "▭", color: "#f59e0b" },
+];
+
+const SHIPPING_RATE = 0.15;
+
+function load<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return v ? (JSON.parse(v) as T) : fallback;
+  } catch {
+    return fallback;
   }
-
-  const vider = ()=>{ localStorage.removeItem("panier"); setPanier([]) }
-  const sous=panier.reduce((s,p)=>s+p._prix*p._qty,0)
-  const total=Math.round(sous*1.05)
-
-  const DEST:any={
-    "M-Pesa":"018 23 49 840 - KING SHIPPING",
-    "Orange Money":"09 64 32 16 59 - KING SHIPPING",
-    "Airtel Money":"09 64 32 16 59 - KING SHIPPING - RTL",
-    "PayPal":"nakategeeugene@icloud.com - KING SHIPPING",
-    "Credit card":"Paiement carte sécurisé"
-  }
-
-  const produits = [
-    {id:1, nom:"BMW M4 2023 d'occasion - KING", prix:"43 000 $US", img:"https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400"},
-    {id:2, nom:"7.5 Mil Color PPF Film Protection", prix:"504 $US", img:"https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=400"},
-    {id:3, nom:"Tesla Model 3 Offre Spéciale", prix:"2 500 $US", img:"https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=400"},
-    {id:4, nom:"Film adhésif voiture PPF", prix:"15-98 $US", img:"https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=400"},
-    {id:5, nom:"Lingerie maille - KING SHIPPING", prix:"4,50-6 $US", img:"https://images.unsplash.com/photo-1617331721458-bd3bd3f9c7f8?w=400"},
-    {id:6, nom:"Toyota 2022 d'occasion", prix:"5 000-9 000 $US", img:"https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=400"},
-  ]
-
-  return(
-    <div style={{background:"#f2f2f5", minHeight:"100vh", paddingBottom:110, fontFamily:"Arial"}}>
-      <div style={{background:"white", padding:"12px", display:"flex", alignItems:"center", gap:10, position:"sticky", top:0, zIndex:10}}>
-        <button onClick={()=>router.back()} style={{width:34,height:34,borderRadius:"50%",border:"1px solid #ddd",background:"white"}}>←</button>
-        <b>KING SHIPPING - Panier({panier.length})</b>
-        {panier.length>0 && <button onClick={vider} style={{marginLeft:"auto", fontSize:11, background:"#fee2e2", border:"none", padding:"6px 10px", borderRadius:20}}>Vider</button>}
-      </div>
-
-      {panier.length===0 ? (
-        <div style={{textAlign:"center", padding:"30px 20px", background:"white", marginTop:2}}>
-          <div style={{width:90,height:90,margin:"0 auto", background:"#f5f5f5", borderRadius:"50%", display:"grid", placeItems:"center", fontSize:36}}>🛒</div>
-          <h3 style={{marginTop:14, fontWeight:800}}>Your cart is empty</h3>
-          <p style={{fontSize:12, color:"#666"}}>KING SHIPPING - Add products and they will appear here.<br/>Panier sera vidé après paiement.</p>
-          <div style={{marginTop:12, background:"#111", color:"white", padding:"10px 20px", borderRadius:25, display:"inline-block", fontSize:13, fontWeight:700}}>Explore KING SHIPPING</div>
-        </div>
-      ) : (
-        <div style={{padding:12}}>
-          {panier.map((p:any)=>(
-            <div key={p.id+Math.random()} style={{background:"white", borderRadius:12, padding:10, display:"flex", gap:10, marginBottom:8}}>
-              <img src={p.image} style={{width:60,height:60,borderRadius:8,objectFit:"cover"}}/>
-              <div style={{flex:1}}><p style={{fontSize:12,margin:0,fontWeight:700}}>{p.name}</p><p style={{fontSize:11,margin:0}}>Subtotal: ${p._prix*p._qty}</p></div>
-              <button onClick={()=>{const f=panier.filter((_,i)=>panier.indexOf(p)!==i); const nf=panier.slice(0,-1); setPanier(nf); localStorage.setItem("panier",JSON.stringify(nf))}} style={{border:"none",background:"#eee",width:24,height:24,borderRadius:"50%"}}>✕</button>
-            </div>
-          ))}
-          <div style={{background:"white", borderRadius:12, padding:10, fontSize:12}}><b>TOTAL KING SHIPPING: ${total}</b></div>
-        </div>
-      )}
-
-      {/* LES PRODUITS QUI ETAIENT EN BAS - COMME TU AS DEMANDÉ */}
-      <div style={{background:"white", marginTop:8, padding:12}}>
-        <b style={{fontSize:14}}>Recommandés pour vous - KING SHIPPING</b>
-        <p style={{fontSize:11, color:"#888", margin:"4px 0 0 0"}}>Clique pour ajouter au panier</p>
-        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10}}>
-          {produits.map(pr=>(
-            <div key={pr.id} onClick={()=>addToCart(pr)} style={{border:"1px solid #eee", borderRadius:12, overflow:"hidden", cursor:"pointer", background:"white"}}>
-              <img src={pr.img} style={{width:"100%", height:110, objectFit:"cover"}}/>
-              <div style={{padding:8}}>
-                <p style={{fontSize:11, margin:0, height:32, overflow:"hidden", fontWeight:600}}>{pr.nom}</p>
-                <p style={{fontSize:12, fontWeight:800, margin:"4px 0 0 0"}}>{pr.prix}</p>
-                <p style={{fontSize:9, color:"#888", margin:0}}>KING SHIPPING • Verified</p>
-                <div style={{marginTop:6, background:"#ff6a00", color:"white", textAlign:"center", padding:"4px", borderRadius:8, fontSize:11, fontWeight:700}}>+ Ajouter</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{position:"fixed", bottom:52, left:0, right:0, background:"white", borderTop:"1px solid #ddd", padding:"10px 12px", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-        <span style={{fontSize:12}}><input type="checkbox"/> Tous</span>
-        <div style={{display:"flex", gap:10, alignItems:"center"}}><b>{panier.length?`$${total}`:"0 $US"}</b><button disabled={panier.length===0} onClick={()=>setOpen(true)} style={{background:panier.length===0?"#ccc":"#ff6a00", color:"white", border:"none", borderRadius:20, padding:"8px 20px", fontWeight:700}}>Payer</button></div>
-      </div>
-
-      {open&&(
-        <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:99, display:"flex", alignItems:"flex-end"}}>
-          <div style={{background:"white", width:"100%", borderRadius:"16px 16px 0 0", padding:16}}>
-            <b>KING SHIPPING - ${total}</b>
-            <div style={{display:"flex", gap:6, flexWrap:"wrap", marginTop:10}}>
-              {Object.keys(DEST).map(m=>(
-                <button key={m} onClick={()=>setMethode(m)} style={{padding:"6px 12px", borderRadius:20, border:"1px solid #ddd", background:methode===m?"black":"white", color:methode===m?"white":"black", fontSize:12}}>{m}</button>
-              ))}
-            </div>
-            <div style={{background:methode==="PayPal"?"#e6f0ff":"#fff7cc", padding:10, borderRadius:10, marginTop:10, border:"1px solid #111"}}><b>Destinataire:</b><br/><span style={{fontWeight:800}}>{DEST[methode]}</span></div>
-            {!stepPin ? (
-              <button onClick={()=>setStepPin(true)} style={{width:"100%", background:"black", color:"white", padding:12, borderRadius:10, marginTop:12, border:"none"}}>Continuer</button>
-            ) : (
-              <div style={{textAlign:"center", marginTop:12}}>
-                <input type="password" placeholder="PIN ****" style={{padding:10, width:"60%", borderRadius:8, border:"1px solid #ddd", textAlign:"center", letterSpacing:6}}/>
-                <button onClick={()=>{alert(`✅ ${total}$ envoyé à ${DEST[methode]}`); localStorage.removeItem("panier"); setPanier([]); setOpen(false); setStepPin(false); router.push("/message")}} style={{width:"100%", background:"green", color:"white", padding:12, borderRadius:10, marginTop:10, border:"none", fontWeight:700}}>Valider & Vider Panier</button>
-              </div>
-            )}
-            <button onClick={()=>setOpen(false)} style={{width:"100%", background:"#eee", padding:10, borderRadius:10, marginTop:8, border:"none"}}>Fermer</button>
-          </div>
-        </div>
-      )}
-
-      <div style={{position:"fixed", bottom:0, left:0, right:0, background:"white", borderTop:"1px solid #eee", display:"flex", justifyContent:"space-around", padding:"6px 0", fontSize:10}}>
-        <Link href="/" style={{textAlign:"center", textDecoration:"none", color:"#111"}}>⌂<br/>Accueil</Link>
-        <Link href="/categories" style={{textAlign:"center", textDecoration:"none", color:"#111"}}>⊞<br/>Catégories</Link>
-        <Link href="/message" style={{textAlign:"center", textDecoration:"none", color:"#111"}}>💬<br/>Messagerie</Link>
-        <Link href="/panier" style={{textAlign:"center", textDecoration:"none", color:"#ff6a00", fontWeight:700}}>🛒<br/>Panier</Link>
-        <Link href="/compte" style={{textAlign:"center", textDecoration:"none", color:"#111"}}>👤<br/>Moi KING</Link>
-      </div>
-    </div>
-  )
 }
+
+export default function CartPage() {
+  const router = useRouter();
+  const [cart, setCart] = useState<Record<number, number>>({});
+  const [method, setMethod] = useState<string>("");
+  const [toast, setToast] = useState("");
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setCart(load("ks2-cart", {}));
+    setReady(true);
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    try { localStorage.setItem("ks2-cart", JSON.stringify(cart)); } catch {}
+  }, [cart, ready]);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(""), 2000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const items = PRODUCTS.filter((p) => cart[p.id]);
+  const unit = items.reduce((s, p) => s + p.price * cart[p.id], 0);
+  const shipping = unit * SHIPPING_RATE;
+  const total = unit + shipping;
+  const money = (n: number) => `$${n.toFixed(2)}`;
+
+  const setQty = (id: number, d: number) =>
+    setCart((c) => {
+      const n = (c[id] || 0) + d;
+      const { [id]: _, ...rest } = c;
+      return n > 0 ? { ...c, [id]: n } : rest;
+    });
+  const add = (id: number) => setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
+
+  const placeOrder = () => {
+    if (items.length === 0) return setToast("Your cart is empty. Add a product first.");
+    try {
+      const orders = load<unknown[]>("ks2-orders", []);
+      orders.unshift({ id: `#KS${Date.now()}`, items: cart, total, status: "Placed" });
+      localStorage.setItem("ks2-orders", JSON.stringify(orders));
+    } catch {}
+    setCart({});
+    setToast("Order placed. Thank you!");
+  };
+
+  const pay = () => {
+    if (items.length === 0) return setToast("Your cart is empty. Add a product first.");
+    if (!method) return setToast("Choose a payment method first.");
+    // TODO backend : lancer le vrai paiement (M-Pesa, PayPal, carte...) ici
+    setToast(`Payment started with ${METHODS.find((m) => m.id === method)?.label}`);
+  };
+
+  return (
+    <main className="cp">
+      <style>{css}</style>
+
+      <header className="cp-top">
+        <button aria-label="Back" className="back" onClick={() => router.back()}>‹</button>
+        <div className="brand">
+          <img src="/logo.png" alt="" width={36} height={36} />
+          <span>KING SHOPPING</span>
+        </div>
+        <div className="icons">
+          <button aria-label="Cart">🛒{items.length > 0 && <b className="count">{items.length}</b>}</button>
+          <button aria-label="Notifications" onClick={() => router.push("/messages")}>🔔</button>
+        </div>
+      </header>
+
+      {items.length === 0 ? (
+        <section className="empty">
+          <div className="big">🛒</div>
+          <h2>Your cart is empty —</h2>
+          <button className="blue" onClick={() => router.push("/messages")}>Add Products</button>
+        </section>
+      ) : (
+        <section className="lines">
+          {items.map((p) => (
+            <div key={p.id} className="line">
+              <span>{p.name}<br /><small>{money(p.price)}</small></span>
+              <span className="qty">
+                <button aria-label="Remove one" onClick={() => setQty(p.id, -1)}>−</button>
+                <b>{cart[p.id]}</b>
+                <button aria-label="Add one" onClick={() => setQty(p.id, 1)}>+</button>
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <section className="box">
+        <h3>Order Summary</h3>
+        <div className="row"><span>15% Shipping fee</span><span>{money(shipping)}</span></div>
+        <div className="row"><span>Unit price</span><span>{money(unit)}</span></div>
+        <div className="row"><span>Total price</span><b className="gold">{money(total)}</b></div>
+        <div className="actions">
+          <button className="ghost" onClick={placeOrder}>Place Order</button>
+          <button className="goldbtn" onClick={pay}>Pay Your Order</button>
+        </div>
+      </section>
+
+      <section className="box">
+        <h3>Payment Methods</h3>
+        <div className="methods">
+          {METHODS.map((m) => (
+            <button key={m.id} className={`method ${method === m.id ? "sel" : ""}`} aria-pressed={method === m.id} onClick={() => setMethod(m.id)}>
+              <i style={{ background: m.color }}>{m.icon}</i>
+              <small>{m.label}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <h3 className="rec">Recommended Products</h3>
+      {PRODUCTS.length === 0 ? (
+        <p className="none">No products yet. They will appear here once posted.</p>
+      ) : (
+        <div className="prods">
+          {PRODUCTS.map((p) => (
+            <article key={p.id} className="prod">
+              <img src={p.image} alt={p.name} />
+              <h4>{p.name}</h4>
+              <small>{p.rating} ★ • {p.sold} sold</small>
+              <strong>{money(p.price)}</strong>
+              <button onClick={() => add(p.id)}>Add to cart</button>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {toast && <div className="toast" role="status">{toast}</div>}
+    </main>
+  );
+}
+
+const css = `
+.cp{--gold:#e8b85c;--bg:#0f0f10;max-width:430px;margin:0 auto;min-height:100vh;background:var(--bg);color:#fff;font-family:system-ui,sans-serif;padding:0 16px 40px}
+.cp button{font:inherit;color:inherit;border:0;cursor:pointer;background:none}
+.cp button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.cp-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;background:#1a1a1b;margin:0 -16px;padding:12px 16px}
+.back{font-size:34px;line-height:1;padding:0 10px 4px 0}
+.brand{display:flex;align-items:center;gap:8px;color:var(--gold);font-weight:600;letter-spacing:.06em}
+.brand img{border-radius:50%;border:1px solid var(--gold)}
+.icons{display:flex;gap:14px;font-size:22px}
+.icons button{position:relative}
+.count{position:absolute;top:-6px;right:-8px;min-width:18px;height:18px;border-radius:9px;background:#e8651a;font-size:11px;display:grid;place-items:center}
+.empty{text-align:center;padding:36px 0 28px}
+.big{font-size:96px;opacity:.55}
+.empty h2{font-size:24px;font-weight:600;margin:8px 0 16px}
+.blue{background:#2160c4!important;padding:12px 22px;border-radius:10px;font-weight:600}
+.lines{margin-top:12px}
+.line{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #333}
+.line small{color:#aaa}
+.qty{display:flex;align-items:center;gap:12px}
+.qty button{width:32px;height:32px;border-radius:50%;background:#333;font-size:18px}
+.box{border:1px solid #6b5420;border-radius:10px;padding:14px;margin:18px 0}
+.box h3{margin:0 0 10px;font-size:17px;font-weight:500;color:var(--gold)}
+.row{display:flex;justify-content:space-between;padding:9px 0;color:#ddd}
+.gold{color:var(--gold)}
+.actions{display:flex;gap:12px;margin-top:10px}
+.actions button{flex:1;padding:12px 8px;border-radius:8px;font-weight:600}
+.ghost{border:1px solid var(--gold)!important;color:#fff}
+.goldbtn{background:var(--gold)!important;color:#1a1305!important}
+.methods{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.method{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border-radius:12px;background:#1f1f21!important;border:2px solid transparent!important}
+.method.sel{border-color:var(--gold)!important}
+.method i{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-style:normal;font-weight:700;font-size:16px}
+.method small{font-size:11px;color:#ccc}
+.rec{color:var(--gold);font-weight:500;font-size:19px;margin:24px 0 12px}
+.none{color:#999;text-align:center;padding:16px 0}
+.prods{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.prod{background:#f1f1f1;color:#111;border-radius:12px;padding:8px;text-align:center}
+.prod img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#e2e2e2}
+.prod h4{font-size:12px;margin:6px 0 2px}.prod small{display:block;font-size:10px;color:#555}
+.prod strong{display:block;font-size:13px;margin:4px 0}
+.prod button{background:#e8651a;color:#fff;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:600}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#fff;color:#111;padding:10px 18px;border-radius:999px;font-weight:600;z-index:20;max-width:90%;text-align:center}
+`;
