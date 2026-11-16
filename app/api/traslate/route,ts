@@ -1,0 +1,48 @@
+import { NextResponse } from "next/server";
+
+// Fichier à placer ici : app/api/translate/route.ts
+// Utilise la même clé secrète que l'assistant : ANTHROPIC_API_KEY dans .env.local
+
+export async function POST(req: Request) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return NextResponse.json({ error: "missing_key" }, { status: 500 });
+
+  let body: any;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "bad_request" }, { status: 400 }); }
+
+  const language = String(body.language || "").replace(/[^A-Za-z ()\-]/g, "").slice(0, 40);
+  const strings: string[] = (Array.isArray(body.strings) ? body.strings : [])
+    .slice(0, 80)
+    .map((x: any) => String(x).slice(0, 300));
+  if (!language || strings.length === 0) return NextResponse.json({ error: "bad_request" }, { status: 400 });
+
+  const system = `You translate the user interface of a shopping app from English into ${language}.
+You receive a JSON array of English strings. Return ONLY a JSON array of the translated strings: same length, same order, no explanation, no code fences.
+Rules:
+- Keep placeholders such as {name}, {n}, {x}, {cur}, {label}, {p} exactly unchanged.
+- Keep emojis and symbols unchanged (for example ✕ ✓ ▾ …).
+- Keep brand names and codes unchanged: King Shipping, PayPal, M-Pesa, Airtel Money, WhatsApp, Gmail, iCloud, Google, USD, KES.
+- Keep the translations short, natural and suitable for buttons, labels and messages. Keep the same tone: elegant and professional.`;
+
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: process.env.TRANSLATE_MODEL || "claude-haiku-5-5",
+        max_tokens: 4000,
+        system,
+        messages: [{ role: "user", content: JSON.stringify(strings) }],
+      }),
+    });
+    const data: any = await r.json();
+    if (!r.ok) return NextResponse.json({ error: data?.error?.message || "api_error" }, { status: 500 });
+    let text: string = (data.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
+    text = text.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    const arr = JSON.parse(text);
+    if (!Array.isArray(arr) || arr.length !== strings.length) return NextResponse.json({ error: "bad_translation" }, { status: 500 });
+    return NextResponse.json({ translations: arr.map((x: any) => String(x)) });
+  } catch {
+    return NextResponse.json({ error: "translate_failed" }, { status: 500 });
+  }
+}
