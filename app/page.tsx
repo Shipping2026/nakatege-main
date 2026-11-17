@@ -389,77 +389,42 @@ function Intro({ onDone }: { onDone: () => void }) {
   const next = () => (last ? onDone() : setI(i + 1));
 
   return (
-    <div className="page intro" style={{ 
-      width: '100vw', 
-      height: '100vh', 
-      margin: 0, 
-      padding: 0, 
-      position: 'relative',
-      overflow: 'hidden',
-      background: 'black'
-    }}>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: 'black', overflow: 'hidden' }}>
       
-      <div className="vbox" style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 1
-      }}>
-        {!failed ? (
-          <video 
-            key={v.src} 
-            src={v.src} 
-            autoPlay 
-            muted 
-            playsInline 
-            controls={false}
-            style={{
-              width: '100vw',
-              height: '100vh',
-              objectFit: 'cover'  // <-- C'EST ÇA QUI MET PLEIN ÉCRAN
-            }}
-            onLoadedMetadata={(e) => setLeft(Math.ceil(e.currentTarget.duration) || v.seconds)}
-            onError={() => setFailed(true)}
-            onEnded={() => setLeft(0)} 
-          />
-        ) : (
-          <div className="slide" style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <div className="count">{left}</div>
-            <p className="owner">{t("The owner will add this video himself.")}</p>
-          </div>
-        )}
-      </div>
+      <video
+        key={v.src}
+        src={v.src}
+        autoPlay
+        muted
+        playsInline
+        style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
+        onLoadedMetadata={(e) => setLeft(Math.ceil(e.currentTarget.duration) || v.seconds)}
+        onError={() => setFailed(true)}
+        onEnded={() => setLeft(0)}
+      />
 
-      {/* Texte par dessus la vidéo */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0,0,0,0.3)',
-        pointerEvents: 'none'
-      }}>
+      {failed && (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'black', zIndex: 10 }}>
+          <div className="count">{left}</div>
+          <p className="owner">{t("The owner will add this video himself.")}</p>
+        </div>
+      )}
+
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', zIndex: 5 }}>
         <small className="brand">{t("VIDEO")} {i + 1} / {INTRO_VIDEOS.length}</small>
         <h1 className="white">{t(v.title)}</h1>
         <p className="small">{t(v.text)}</p>
       </div>
 
-      <div style={{ position: 'absolute', bottom: '20px', left: 0, width: '100vw', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ position: 'absolute', bottom: 30, left: 0, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 6 }}>
         <div className="bar"><div style={{ width: `${((v.seconds - left) / v.seconds) * 100}%` }} /></div>
-        <button className="primary" disabled={left > 0} style={{ opacity: left > 0 ? 0.4 : 1, pointerEvents: left > 0 ? 'none' : 'auto' }} onClick={next}>
+        <button className="primary" disabled={left > 0} style={{ opacity: left > 0 ? 0.4 : 1 }} onClick={next}>
           {left > 0 ? t("Please watch… {n}s", { n: left }) : last ? t("Start shopping") : t("Next video")}
         </button>
       </div>
     </div>
   );
+}
 
 // ==================================================================
 // BOUTIQUE : CONFIGURATION  (tes contacts ADMIN, tes produits PRODUCTS, tes publicités ADS)
