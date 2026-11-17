@@ -372,6 +372,10 @@ const INTRO_VIDEOS = [
   { src: "/videos/exclusive.mp4", title: "Exclusive", text: "King Shipping, an exclusive shopping experience.", seconds: 20 },
   { src: "/videos/security.mp4", title: "Security", text: "Shop and protect your money with security.", seconds: 20 },
 ];
+const INTRO_VIDEO = [
+  { src: "/videos/exclusive.mp4", title: "Exclusive", text: "King Shipping, an exclusive shopping experience.", seconds: 20 },
+  { src: "/videos/security.mp4", title: "Security", text: "Shop and protect your money with security.", seconds: 20 },
+];
 
 function Intro({ onDone }: { onDone: () => void }) {
   const [i, setI] = useState(0);
@@ -380,47 +384,69 @@ function Intro({ onDone }: { onDone: () => void }) {
   const [left, setLeft] = useState(v.seconds);
 
   useEffect(() => { setLeft(v.seconds); setFailed(false); }, [i]);
+  
   useEffect(() => {
-    const iv = setInterval(() => setLeft((l) => (l > 0 ? l - 1 : 0)), 1000);
+    const iv = setInterval(() => {
+      setLeft((l) => (l > 1 ? l - 1 : 0));
+    }, 1000);
     return () => clearInterval(iv);
   }, [i]);
 
+  // AUTO PASSAGE QUAND LE TEMPS EST FINI
+  useEffect(() => {
+    if (left === 0) {
+      if (i === INTRO_VIDEOS.length - 1) {
+        // dernière vidéo -> on reste, le bouton va s'afficher
+      } else {
+        // première vidéo -> on passe direct à la 2ème
+        setTimeout(() => setI(i + 1), 500);
+      }
+    }
+  }, [left, i]);
+
   const last = i === INTRO_VIDEOS.length - 1;
-  const next = () => (last ? onDone() : setI(i + 1));
+  const progress = ((v.seconds - left) / v.seconds) * 100;
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: 'black', overflow: 'hidden' }}>
       
-      <video
-        key={v.src}
-        src={v.src}
-        autoPlay
-        muted
-        playsInline
-        style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
-        onLoadedMetadata={(e) => setLeft(Math.ceil(e.currentTarget.duration) || v.seconds)}
-        onError={() => setFailed(true)}
-        onEnded={() => setLeft(0)}
-      />
-
-      {failed && (
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'black', zIndex: 10 }}>
-          <div className="count">{left}</div>
-          <p className="owner">{t("The owner will add this video himself.")}</p>
-        </div>
+      {/* VIDEO PLEIN ECRAN */}
+      {!failed ? (
+        <video
+          key={v.src}
+          src={v.src}
+          autoPlay
+          muted
+          playsInline
+          style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
+          onError={() => setFailed(true)}
+          onEnded={() => setLeft(0)}
+        />
+      ) : (
+        <div style={{ width: '100vw', height: '100vh', background: 'black' }} />
       )}
 
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', zIndex: 5 }}>
-        <small className="brand">{t("VIDEO")} {i + 1} / {INTRO_VIDEOS.length}</small>
-        <h1 className="white">{t(v.title)}</h1>
+      {/* TEXTE PAR DESSUS - SANS CHIFFRE */}
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 2, background: 'rgba(0,0,0,0.2)' }}>
+        <h1 className="white" style={{ fontSize: 32 }}>{t(v.title)}</h1>
         <p className="small">{t(v.text)}</p>
+        {failed && <p style={{ fontSize: 12, opacity: 0.5, marginTop: 10 }}>{t("The owner will add this video himself.")}</p>}
       </div>
 
-      <div style={{ position: 'absolute', bottom: 30, left: 0, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 6 }}>
-        <div className="bar"><div style={{ width: `${((v.seconds - left) / v.seconds) * 100}%` }} /></div>
-        <button className="primary" disabled={left > 0} style={{ opacity: left > 0 ? 0.4 : 1 }} onClick={next}>
-          {left > 0 ? t("Please watch… {n}s", { n: left }) : last ? t("Start shopping") : t("Next video")}
-        </button>
+      {/* SEULEMENT LA BARRE EN BAS */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100vw', zIndex: 5 }}>
+        <div style={{ width: '100%', height: 3, background: 'rgba(255,255,255,0.2)' }}>
+          <div style={{ width: `${progress}%`, height: '100%', background: '#c5a46a', transition: 'width 1s linear' }} />
+        </div>
+        
+        {/* BOUTON SEULEMENT APRES LA 2EME VIDEO */}
+        {last && left === 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
+            <button className="primary" onClick={onDone} style={{ width: '90%', maxWidth: 400 }}>
+              {t("Start shopping")}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
