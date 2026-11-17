@@ -16,7 +16,14 @@
 //  (Ctrl+F dans VS Code pour aller à une section)
 // ####################################################################
 import { useState, useEffect, useRef, ChangeEvent } from "react";
-
+const translations: any = {
+  "English": { "Search products": "Search products", "Settings": "Settings", "Messages": "Messages", "My Cart": "My Cart", "Your cart is empty": "Your cart is empty", "VIDEO": "VIDEO" },
+  "Français": { "Search products": "Rechercher des produits", "Settings": "Paramètres", "Messages": "Messages", "My Cart": "Mon Panier", "Your cart is empty": "Votre panier est vide", "VIDEO": "VIDÉO" },
+  "Español": { "Search products": "Buscar productos", "Settings": "Configuración", "Messages": "Mensajes", "My Cart": "Mi Carrito" },
+  "Deutsch": { "Search products": "Produkte suchen", "Settings": "Einstellungen" },
+  "Lingala": { "Search products": "Luka biloko", "Settings": "Makambo" },
+  "Swahili": { "Search products": "Tafuta bidhaa", "Settings": "Mipangilio" },
+};
 type Screen = "welcome" | "login" | "signup" | "intro" | "home";
 type User = {
   nom: string; postnom: string; prenom: string;
@@ -89,7 +96,23 @@ const getUsers = (): User[] => {
 export default function Page() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [current, setCurrent] = useState<User | null>(null);
-  const [lang, setLang] = useState("en");
+// En haut de Page
+const [lang, setLang] = useState(() => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('king_lang') || 'English';
+  }
+  return 'English';
+});
+
+const t = (text: string) => {
+  return translations[lang]?.[text] || translations["English"]?.[text] || text;
+};
+
+const handleLanguageChange = (newLang: string) => {
+  setLang(newLang);
+  localStorage.setItem('king_lang', newLang);
+  // Pas besoin de reload si t() utilise lang
+};
   const [, bump] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
